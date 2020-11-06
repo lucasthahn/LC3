@@ -1,5 +1,5 @@
 """
-This file is for executing Gym mountaincar task with LC^3.
+This file is for executing Gym cartpole task with LC^3.
 """
 
 #------------------------Packages-------------------#
@@ -12,23 +12,22 @@ using Distances
 
 include("../utils/weightmat.jl")
 include("../utils/LC3.jl")
-include("../gym/mountaincar.jl")
+include("../gym/cartpole.jl")
 include("../learned_envs/learned_env.jl")
 include("../planner/MPPIClamp.jl")
 
 #-----------------------Constants -------------------#
-numfeatures = 100       # d_phi
-T           = 200       # task horizon
-lambda_reg  = 0.01      # prior covariance is I/lambda_reg
-TS_scale    = 0.000001  # posterior reshaping constant for Thompson sampling
+numfeatures = 200      # d_phi
+T           = 200      # task horizon
+lambda_reg  = 0.0005   # prior covariance is I/lambda_reg
+TS_scale    = 0.0001   # posterior reshaping constant for Thompson sampling
 
-@info "Mountaincar Task"
+@info "Cartpole Task"
 @info "Seed number" seednum
 Random.seed!(seednum)
-
 #----------------------Environment-------------------#
-mjenvs = tconstruct(MountainCar, Threads.nthreads());
-env = MountainCar()
+mjenvs = tconstruct(CartpoleGym, Threads.nthreads());
+env = CartpoleGym()
 dobs, dact = length(obsspace(env)), length(actionspace(env))
 dstate = length(obsspace(env)) #output  (In our work, output is also obs instead of state)
 PredictMat  = PredictionMat(numfeatures, dstate) # generates random matrix
@@ -40,26 +39,27 @@ ctrlrange = env.ctrlrange
 
 #------------------Define Features-------------------#
 include("../utils/rff.jl")
-rffbandwidth = 1.3
+rffbandwidth = 1.5
 const rff = RandomFourierFunctions{Float64}(rffbandwidth, dobs+dact, numfeatures)
 
 #------------------Strategy Struct-------------------#
-env_tconstructor = n -> tconstruct(MountainCar, n)
+env_tconstructor = n -> tconstruct(CartpoleGym, n)
 mppi = MPPIClamp(
             env_tconstructor = n -> tconstruct(LearnedEnv, PredictMat.W, rff, mjenvs, n),
-            covar = Diagonal(0.3 ^2 * I, size(actionspace(env), 1)),
-            lambda = 0.2,
-            H = 110,
-            K = 512,
+            covar = Diagonal(0.2 ^2 * I, size(actionspace(env), 1)),
+            lambda = 0.1,
+            H = 50,
+            K = 128,
             gamma = 1.,
             clamps = ctrlrange
            )
+
 gt_mppi = MPPIClamp(
-            env_tconstructor = n -> tconstruct(MountainCar, n),  #This is for GT-MPPI
-            covar = Diagonal(0.3 ^2 * I, size(actionspace(env), 1)),
-            lambda = 0.2,
-            H = 110,
-            K = 512,
+            env_tconstructor = n -> tconstruct(CartpoleGym, n),   #This is for GT-MPPI
+            covar = Diagonal(0.2 ^2 * I, size(actionspace(env), 1)),
+            lambda = 0.1,
+            H = 50,
+            K = 128,
             gamma = 1.,
             clamps = ctrlrange
            )
@@ -83,9 +83,9 @@ lc3 = LC3(
         );
 
 #------------------Running the algo-------------------#
-function mc_lc3(lc3::LC3, plot::Bool; NITER=100)
+function cpg_lc3(lc3::LC3, plot::Bool; NITER=1000)
     # save data to the following file
-    exper = Experiment("log/mc/mc.jlso", overwrite = false)
+    exper = Experiment("log/cpg/cpg.jlso", overwrite = false)
 
     lg = ULogger()
     for (i, state) in enumerate(lc3)
@@ -120,7 +120,7 @@ function mc_lc3(lc3::LC3, plot::Bool; NITER=100)
     exper, lg
 end
 
-exper, lg = mc_lc3(lc3, true; NITER=100);
+exper, lg = cpg_lc3(lc3, true; NITER=1000);
 
 exper[:logs] = get(lg)
 finish!(exper); # flushes everything to disk

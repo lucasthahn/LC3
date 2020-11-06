@@ -39,14 +39,13 @@ ctrlrange = env.ctrlrange
 @info "Simulation timestep:" LyceumBase.timestep(env)
 
 #------------------Define Features-------------------#
-include("../utils/rff.jl")
-rffbandwidth = 1.3
-const rff = RandomFourierFunctions{Float64}(rffbandwidth, dobs+dact, numfeatures)
+include("../utils/rand_nn.jl")
+const nn = RandomNN{Float64}(dobs+dact, numfeatures)
 
 #------------------Strategy Struct-------------------#
 env_tconstructor = n -> tconstruct(MountainCar, n)
 mppi = MPPIClamp(
-            env_tconstructor = n -> tconstruct(LearnedEnv, PredictMat.W, rff, mjenvs, n),
+            env_tconstructor = n -> tconstruct(LearnedEnv, PredictMat.W, nn, mjenvs, n),
             covar = Diagonal(0.3 ^2 * I, size(actionspace(env), 1)),
             lambda = 0.2,
             H = 110,
@@ -63,12 +62,11 @@ gt_mppi = MPPIClamp(
             gamma = 1.,
             clamps = ctrlrange
            )
-
 #------------------Strategy Struct-------------------#
 randreset!(env)
 lc3 = LC3(
         env,
-        rff,
+        nn,
         PredictMat,
         numfeatures,
         dstate,
@@ -81,7 +79,6 @@ lc3 = LC3(
         Hmax = T,
         N = T,
         );
-
 #------------------Running the algo-------------------#
 function mc_lc3(lc3::LC3, plot::Bool; NITER=100)
     # save data to the following file

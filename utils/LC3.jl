@@ -51,7 +51,7 @@ struct LC3{E, F, K, M}
                  covscale,
                  controller;
 
-                 Hmax = 400, 
+                 Hmax = 400,
                  N = 400,
                  prebuffer = nothing,
                 )
@@ -67,7 +67,7 @@ struct LC3{E, F, K, M}
         #    @warn "Could not infer model element type. Defaulting to $DTnew"
         #    DT = DTnew
         #end
-        envsampler = env_tconstructor 
+        envsampler = env_tconstructor
 
         new{
             typeof(envsampler),
@@ -114,21 +114,21 @@ function storedata!(batch::NamedTuple, buffers::DataBuffers, ctrlrange::Abstract
     # Storing data into arrays : getshifteddata deals with multiple trajecotries
     xydata = getshifteddata(batch.observations)
     uvdata = getshifteddata(batch.actions)
-    xdata  = first(xydata) 
-    udata  = first(uvdata) 
-    rewarddata = batch.rewards[1:end-1] 
+    xdata  = first(xydata)
+    udata  = first(uvdata)
+    rewarddata = batch.rewards[1:end-1]
     clampctrl!(udata, ctrlrange)
     xudata = vcat(xdata, udata)
     PhiXUdata = featurize(xudata)
-    ydata  = last(xydata) - xdata 
+    ydata  = last(xydata) - xdata
     # save data into data buffers
     append!(buffers.phixudatabuf, PhiXUdata)
     append!(buffers.xudatabuf, xudata)
-    append!(buffers.ydatabuf, ydata) 
-    append!(buffers.xdatabuf, xdata) 
+    append!(buffers.ydatabuf, ydata)
+    append!(buffers.xdatabuf, xdata)
     append!(buffers.udatabuf, udata)
-    append!(buffers.rewarddatabuf, rewarddata) 
-    append!(buffers.sizeofbuf, [size(xdata,2)])  # data size 
+    append!(buffers.rewarddatabuf, rewarddata)
+    append!(buffers.sizeofbuf, [size(xdata,2)])  # data size
     return xudata, ydata, PhiXUdata
 end
 
@@ -138,22 +138,23 @@ function Base.iterate(featlearn::LC3{DT}, i = 1) where {DT}
     @unpack Hmax, N, ctrlrange = featlearn
     @unpack covW, Amat, covscale, controller, numfeatures, buffers = featlearn
 
-    if (i == 1) || (mod(i, 50) == 0); @info "Iterations:" i; end;
+    # if (i == 1) || (mod(i, 50) == 0); @info "Iterations:" i; end;
+    @info "Iterations:" i
 
     #------------------Reset MPPI struct------------#
     reset!(controller)
     randreset!(envsampler)
 
     #-------------------Roll out--------------------#
+    @info "Beginning rollout"
     elapsed_sample = @elapsed begin
         opt = ControllerIterator((action, state, obs) -> getaction!(action, obs, controller),
                                  envsampler; T = Hmax, plotiter = 9999)
         for _ in opt # runs iterator
         end
-        batch = opt.trajectory 
+        batch = opt.trajectory
     end
-
-
+    @info "Done with rollout"
     #-------------------Store data------------------#
     newxu, newy, newPhiXU = storedata!(batch, buffers, ctrlrange, featurize)
     if (i == 1) || (mod(i, 50) == 0); @info "rewards" sum(batch.rewards); end;
@@ -166,8 +167,8 @@ function Base.iterate(featlearn::LC3{DT}, i = 1) where {DT}
     covW .= covW .- covW * newPhiXU * pinv(I+newPhiXU'*covW*newPhiXU) * newPhiXU' * covW
     Amat .+= newPhiXU * newy'
     meanW = covW * Amat
-    
-    prederr = norm(newy - meanW' * newPhiXU)/(norm(meanW' * newPhiXU) + 1e-6)  
+
+    prederr = norm(newy - meanW' * newPhiXU)/(norm(meanW' * newPhiXU) + 1e-6)
     #@info "Mean-model error" prederr
 
     # when covscale is set to zero, we use mean model
@@ -185,11 +186,11 @@ function Base.iterate(featlearn::LC3{DT}, i = 1) where {DT}
         PredictMat.W .= TestSampleMat[:,:,1]
     end
     # update weight matrix in multiple learnedenvs for multi-threading
-    for k in controller.envs 
+    for k in controller.envs
         k.PredictMat .= PredictMat.W
     end
-   
-    
+
+
     #------------------updating state---------------#
     result = (
               iter = i,

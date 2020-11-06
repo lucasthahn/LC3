@@ -31,7 +31,7 @@ function (rff::RandomFourierFunctions{T})(z::AbstractArray{T, N},
                                           x::AbstractArray{T, N}) where {T <: Union{Float32,Float64}, N}
     nfeat = size(rff.directions,1)
     sD = T(sqrt(2/nfeat))
-   
+
     W, b = rff.directions, rff.offsets
     mul!(z, W, x)
     z .+= b
