@@ -39,8 +39,8 @@ ctrlrange = env.ctrlrange
 @info "Simulation timestep:" LyceumBase.timestep(env)
 
 #------------------Define Features-------------------#
-include("../utils/rand_nn.jl")
-const nn = RandomNN{Float64}(dobs+dact, numfeatures)
+include("../utils/gnn.jl")
+const nn = GNN{Float64}(dobs+dact, numfeatures)
 
 #------------------Strategy Struct-------------------#
 env_tconstructor = n -> tconstruct(MountainCar, n)
@@ -96,7 +96,7 @@ function mc_lc3(lc3::LC3, plot::Bool; NITER=100)
         end
         # save all the log data
         push!(lg, :algstate, filter_nt(state, exclude = (:elapsed_sampled)))
-        if plot && mod(i, 50) == 0
+        if plot && mod(i, 25) == 0
             x = lg[:algstate]
             # show reward curve
             display(expplot(
@@ -121,5 +121,3 @@ exper, lg = mc_lc3(lc3, true; NITER=100);
 
 exper[:logs] = get(lg)
 finish!(exper); # flushes everything to disk
-
-

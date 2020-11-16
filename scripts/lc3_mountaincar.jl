@@ -99,7 +99,8 @@ function mc_lc3(lc3::LC3, plot::Bool; NITER=100)
         end
         # save all the log data
         push!(lg, :algstate, filter_nt(state, exclude = (:elapsed_sampled)))
-        if plot && mod(i, 50) == 0
+        # if plot && mod(i, 50) == 0
+		  if plot && mod(i, 25) == 0
             x = lg[:algstate]
             # show reward curve
             display(expplot(

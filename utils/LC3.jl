@@ -146,7 +146,6 @@ function Base.iterate(featlearn::LC3{DT}, i = 1) where {DT}
     randreset!(envsampler)
 
     #-------------------Roll out--------------------#
-    @info "Beginning rollout"
     elapsed_sample = @elapsed begin
         opt = ControllerIterator((action, state, obs) -> getaction!(action, obs, controller),
                                  envsampler; T = Hmax, plotiter = 9999)
@@ -154,7 +153,6 @@ function Base.iterate(featlearn::LC3{DT}, i = 1) where {DT}
         end
         batch = opt.trajectory
     end
-    @info "Done with rollout"
     #-------------------Store data------------------#
     newxu, newy, newPhiXU = storedata!(batch, buffers, ctrlrange, featurize)
     if (i == 1) || (mod(i, 50) == 0); @info "rewards" sum(batch.rewards); end;
